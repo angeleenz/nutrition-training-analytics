@@ -1,0 +1,12 @@
+[project]
+name = "nutrition-training-analytics"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "django>=5.2.10",
+    "flake8>=7.3.0",
+    "matplotlib>=3.10.8",
+    "pandas>=2.3.3",
+]
