@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden mt-8">
+    <div class="px-6 py-4 border-b border-gray-200 bg-green-50">
+        <h1 class="text-2xl font-bold text-gray-800">Workout: {{ session.date }}</h1>
+    </div>
+    
+    <div class="p-6">
+        <div class="flex justify-between items-center mb-6">
+            <div class="text-center">
+                <span class="block text-4xl font-bold text-gray-800">{{ session.duration_minutes }}</span>
+                <span class="text-xs text-gray-500 uppercase">Minutes</span>
+            </div>
+            <div class="text-center">
+                <span class="block text-4xl font-bold 
+                {% if session.intensity >= 8 %}text-red-600{% elif session.intensity >= 5 %}text-yellow-600{% else %}text-green-600{% endif %}">
+                    {{ session.intensity }}
+                </span>
+                <span class="text-xs text-gray-500 uppercase">Intensity (1-10)</span>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-2">Activities</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for type in session.workout_types.all %}
+                    <span class="px-3 py-1 bg-gray-200 rounded-full text-sm font-medium text-gray-800">{{ type.name }}</span>
+                {% empty %}
+                    <span class="text-gray-400 italic">No specific activities recorded</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if session.notes %}
+        <div class="bg-gray-50 p-4 rounded border border-gray-100">
+            <h3 class="text-sm font-bold text-gray-500 uppercase mb-1">Notes</h3>
+            <p class="text-gray-700 whitespace-pre-wrap">{{ session.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+        <a href="{% url 'training-update' session.pk %}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Edit</a>
+        <a href="{% url 'training-list' %}" class="text-gray-600 px-4 py-2 hover:underline">Back to List</a>
+    </div>
+</div>
+{% endblock %}
