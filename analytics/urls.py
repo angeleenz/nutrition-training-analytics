@@ -7,9 +7,8 @@ urlpatterns = [
     path('nutrition/<int:pk>/', views.nutrition_detail, name='nutrition-detail'),
     path('training/', views.training_list, name='training-list'),
     path('training/<int:pk>/', views.training_detail, name='training-detail'),
-    # Placeholders for future create/update/delete
-    path('nutrition/create/', views.dashboard, name='nutrition-create'), # Temporary redirect
-    path('nutrition/<int:pk>/update/', views.dashboard, name='nutrition-update'), # Temporary redirect
-    path('training/create/', views.dashboard, name='training-create'), # Temporary redirect
-    path('training/<int:pk>/update/', views.dashboard, name='training-update'), # Temporary redirect
+    path('nutrition/create/', views.nutrition_create, name='nutrition-create'),
+    path('nutrition/<int:pk>/update/', views.nutrition_update, name='nutrition-update'),
+    path('training/create/', views.training_create, name='training-create'),
+    path('training/<int:pk>/update/', views.training_update, name='training-update'),
 ]
