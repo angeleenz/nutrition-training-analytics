@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+
 class WorkoutType(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -8,6 +9,7 @@ class WorkoutType(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class DailyNutrition(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -24,6 +26,7 @@ class DailyNutrition(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.date}"
+
 
 class TrainingSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
