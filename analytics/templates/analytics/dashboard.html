@@ -6,7 +6,7 @@
     <div class="bg-white p-6 rounded-lg shadow-md border border-gray-100">
         <h2 class="text-2xl font-bold mb-4 text-blue-800">Recent Nutrition Logs</h2>
         {% if recent_nutrition %}
-            <ul class="space-y-3">
+            <ul class="space-y-3 mb-4">
                 {% for n in recent_nutrition %}
                 <li>
                     <a href="{% url 'nutrition-detail' n.pk %}" class="flex justify-between items-center bg-blue-50 p-3 rounded hover:bg-blue-100 transition">
@@ -16,6 +16,25 @@
                 </li>
                 {% endfor %}
             </ul>
+            
+            {% if recent_nutrition.has_other_pages %}
+            <div class="flex justify-between text-sm">
+                {% if recent_nutrition.has_previous %}
+                    <a href="?n_page={{ recent_nutrition.previous_page_number }}&t_page={{ recent_training.number }}" class="text-blue-600 hover:underline">&laquo; Prev</a>
+                {% else %}
+                    <span class="text-gray-300">&laquo; Prev</span>
+                {% endif %}
+
+                <span>Page {{ recent_nutrition.number }}</span>
+
+                {% if recent_nutrition.has_next %}
+                    <a href="?n_page={{ recent_nutrition.next_page_number }}&t_page={{ recent_training.number }}" class="text-blue-600 hover:underline">Next &raquo;</a>
+                {% else %}
+                    <span class="text-gray-300">Next &raquo;</span>
+                {% endif %}
+            </div>
+            {% endif %}
+
         {% else %}
             <p class="text-gray-500">No nutrition data logged yet.</p>
         {% endif %}
@@ -28,7 +47,7 @@
     <div class="bg-white p-6 rounded-lg shadow-md border border-gray-100">
         <h2 class="text-2xl font-bold mb-4 text-green-800">Recent Training Sessions</h2>
         {% if recent_training %}
-            <ul class="space-y-3">
+            <ul class="space-y-3 mb-4">
                 {% for t in recent_training %}
                 <li>
                     <a href="{% url 'training-detail' t.pk %}" class="flex justify-between items-center bg-green-50 p-3 rounded hover:bg-green-100 transition">
@@ -41,6 +60,25 @@
                 </li>
                 {% endfor %}
             </ul>
+
+            {% if recent_training.has_other_pages %}
+            <div class="flex justify-between text-sm">
+                {% if recent_training.has_previous %}
+                    <a href="?t_page={{ recent_training.previous_page_number }}&n_page={{ recent_nutrition.number }}" class="text-green-600 hover:underline">&laquo; Prev</a>
+                {% else %}
+                    <span class="text-gray-300">&laquo; Prev</span>
+                {% endif %}
+
+                <span>Page {{ recent_training.number }}</span>
+
+                {% if recent_training.has_next %}
+                    <a href="?t_page={{ recent_training.next_page_number }}&n_page={{ recent_nutrition.number }}" class="text-green-600 hover:underline">Next &raquo;</a>
+                {% else %}
+                    <span class="text-gray-300">Next &raquo;</span>
+                {% endif %}
+            </div>
+            {% endif %}
+
         {% else %}
             <p class="text-gray-500">No training sessions found.</p>
         {% endif %}
@@ -50,15 +88,45 @@
     </div>
 </div>
 
-<!-- Analytics Preview Placeholder (Phase 4) -->
-<div class="mt-8 bg-white p-6 rounded-lg shadow-md border border-gray-100">
-    <h2 class="text-2xl font-bold mb-4 text-purple-800">Analytics Preview</h2>
-    <div class="p-8 bg-gray-50 text-center text-gray-500 rounded border border-dashed border-gray-300">
-        {% if analytics_graph %}
-            <img src="data:image/png;base64,{{ analytics_graph }}" alt="Analytics Graph" class="mx-auto rounded shadow-lg"/>
-        {% else %}
-            <p>Graph will appear here in Phase 4</p>
-        {% endif %}
+<!-- Analytics Graphs -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+    
+    <!-- Main Graph -->
+    <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md border border-gray-100">
+        <h2 class="text-2xl font-bold mb-4 text-purple-800">Calories vs Intensity</h2>
+        <div class="p-2 bg-gray-50 text-center rounded">
+            {% if analytics_graph %}
+                <img src="data:image/png;base64,{{ analytics_graph }}" alt="Analytics Graph" class="mx-auto rounded shadow-sm max-w-full"/>
+            {% else %}
+                <p class="py-10 text-gray-500">Not enough data to generate graph.</p>
+            {% endif %}
+        </div>
     </div>
+
+    <!-- Macro Pie Chart -->
+    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-100">
+        <h2 class="text-xl font-bold mb-4 text-gray-700">Macro Distribution</h2>
+        <div class="p-2 bg-gray-50 text-center rounded flex justify-center">
+            {% if graph_pie %}
+                <img src="data:image/png;base64,{{ graph_pie }}" alt="Macro Graph" class="rounded shadow-sm max-w-full"/>
+            {% else %}
+                <p class="py-10 text-gray-500">No nutrition data available.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Workout Type Bar Chart -->
+    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-100">
+        <h2 class="text-xl font-bold mb-4 text-gray-700">Favorite Activities</h2>
+        <div class="p-2 bg-gray-50 text-center rounded flex justify-center">
+            {% if graph_bar %}
+                <img src="data:image/png;base64,{{ graph_bar }}" alt="Workout Type Graph" class="rounded shadow-sm max-w-full"/>
+            {% else %}
+                <p class="py-10 text-gray-500">No workout data available.</p>
+            {% endif %}
+        </div>
+    </div>
+
 </div>
 {% endblock %}
+
