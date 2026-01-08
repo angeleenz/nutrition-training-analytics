@@ -2,7 +2,10 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from .models import DailyNutrition, TrainingSession
 from .forms import DailyNutritionForm, TrainingSessionForm, SignUpForm
-from .utils import get_analytics_graph, get_macro_pie_chart, get_workout_type_chart
+from .utils import (
+    get_analytics_graph, get_macro_pie_chart, get_workout_type_chart,
+    calculate_streaks, get_advanced_stats
+)
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login
@@ -31,16 +34,26 @@ def get_active_user(request):
     # Fallback to first user for guest view (optional, or force login)
     return User.objects.first()
 
-
-
 @login_required
 def dashboard(request):
     """Overview of recent activity with analytics."""
     user = request.user
-    
+
+    # Date Filtering
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
     # Recent lists with simple pagination for "mini-list" feel
     nutrition_qs = DailyNutrition.objects.filter(user=user).order_by('-date')
     training_qs = TrainingSession.objects.filter(user=user).order_by('-date')
+
+    # Apply filtering to lists if present
+    if start_date:
+        nutrition_qs = nutrition_qs.filter(date__gte=start_date)
+        training_qs = training_qs.filter(date__gte=start_date)
+    if end_date:
+        nutrition_qs = nutrition_qs.filter(date__lte=end_date)
+        training_qs = training_qs.filter(date__lte=end_date)
 
     # Pagination for dashboard (e.g. 5 items per "page")
     nut_paginator = Paginator(nutrition_qs, 5)
@@ -52,9 +65,13 @@ def dashboard(request):
     recent_training = train_paginator.get_page(train_page_number)
 
     # Generate Graphs
-    graph_main = get_analytics_graph(user)
-    graph_pie = get_macro_pie_chart(user)
-    graph_bar = get_workout_type_chart(user)
+    graph_main = get_analytics_graph(user, start_date, end_date)
+    graph_pie = get_macro_pie_chart(user, start_date, end_date)
+    graph_bar = get_workout_type_chart(user, start_date, end_date)
+
+    # Advanced Stats
+    streaks = calculate_streaks(user)
+    adv_stats = get_advanced_stats(user, start_date, end_date)
 
     context = {
         'recent_nutrition': recent_nutrition,
@@ -62,17 +79,31 @@ def dashboard(request):
         'analytics_graph': graph_main,
         'graph_pie': graph_pie,
         'graph_bar': graph_bar,
+        'streaks': streaks,
+        'adv_stats': adv_stats,
+        'start_date': start_date,
+        'end_date': end_date,
     }
     return render(request, 'analytics/dashboard.html', context)
-
-
 @login_required
 def nutrition_list(request):
     entries_list = DailyNutrition.objects.filter(user=request.user).order_by('-date')
+
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    if start_date:
+        entries_list = entries_list.filter(date__gte=start_date)
+    if end_date:
+        entries_list = entries_list.filter(date__lte=end_date)
+
     paginator = Paginator(entries_list, 10)  # 10 per page
     page_number = request.GET.get('page')
     entries = paginator.get_page(page_number)
-    return render(request, 'analytics/nutrition_list.html', {'entries': entries})
+    return render(request, 'analytics/nutrition_list.html', {
+        'entries': entries,
+        'start_date': start_date,
+        'end_date': end_date
+    })
 
 
 @login_required
@@ -109,17 +140,25 @@ def nutrition_update(request, pk):
     else:
         form = DailyNutritionForm(instance=entry)
     return render(request, 'analytics/form.html', {'form': form, 'title': 'Edit Nutrition'})
-
-
 @login_required
 def training_list(request):
     sessions_list = TrainingSession.objects.filter(user=request.user).order_by('-date')
+
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    if start_date:
+        sessions_list = sessions_list.filter(date__gte=start_date)
+    if end_date:
+        sessions_list = sessions_list.filter(date__lte=end_date)
+
     paginator = Paginator(sessions_list, 10)
     page_number = request.GET.get('page')
     sessions = paginator.get_page(page_number)
-    return render(request, 'analytics/training_list.html', {'sessions': sessions})
-
-
+    return render(request, 'analytics/training_list.html', {
+        'sessions': sessions,
+        'start_date': start_date,
+        'end_date': end_date
+    })
 @login_required
 def training_detail(request, pk):
     session = get_object_or_404(TrainingSession, pk=pk, user=request.user)

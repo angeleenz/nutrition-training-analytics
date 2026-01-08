@@ -2,9 +2,27 @@
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 class="text-3xl font-bold text-gray-800">Nutrition History</h1>
         <a href="{% url 'nutrition-create' %}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Add Entry</a>
+    </div>
+
+    <!-- Filter -->
+    <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
+        <form method="get" class="flex flex-wrap items-end gap-2 text-sm">
+            <div>
+                <label class="block text-xs font-medium text-gray-700">From</label>
+                <input type="date" name="start_date" value="{{ start_date|default:'' }}" class="border rounded p-1">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700">To</label>
+                <input type="date" name="end_date" value="{{ end_date|default:'' }}" class="border rounded p-1">
+            </div>
+            <button type="submit" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-600">Filter</button>
+            {% if start_date or end_date %}
+                <a href="." class="text-red-500 ml-2 hover:underline">Clear</a>
+            {% endif %}
+        </form>
     </div>
 
     <div class="bg-white shadow overflow-hidden rounded-lg">
@@ -28,37 +46,26 @@
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <a href="{% url 'nutrition-detail' entry.pk %}" class="text-blue-600 hover:text-blue-900">View</a>
                         <a href="{% url 'nutrition-update' entry.pk %}" class="ml-4 text-indigo-600 hover:text-indigo-900">Edit</a>
+                        <a href="{% url 'nutrition-delete' entry.pk %}" class="ml-4 text-red-600 hover:text-red-900">Delete</a>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
 
-        {% if entries.has_other_pages %}
-        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-            <div class="flex-1 flex justify-between">
-                {% if entries.has_previous %}
-                    <a href="?page={{ entries.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:text-gray-500">
-                        Previous
-                    </a>
-                {% else %}
-                    <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed">Previous</span>
-                {% endif %}
-                
-                <span class="text-sm text-gray-700 py-2">
-                    Page {{ entries.number }} of {{ entries.paginator.num_pages }}
-                </span>
-
-                {% if entries.has_next %}
-                    <a href="?page={{ entries.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:text-gray-500">
-                        Next
-                    </a>
-                {% else %}
-                    <span class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed">Next</span>
-                {% endif %}
-            </div>
+    <div class="mt-4 flex justify-between items-center text-sm text-gray-600">
+        <div>
+            Page {{ entries.number }} of {{ entries.paginator.num_pages }}
         </div>
-        {% endif %}
+        <div class="space-x-2">
+            {% if entries.has_previous %}
+                <a href="?page={{ entries.previous_page_number }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}" class="text-blue-600 hover:underline">Previous</a>
+            {% endif %}
+            {% if entries.has_next %}
+                <a href="?page={{ entries.next_page_number }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}" class="text-blue-600 hover:underline">Next</a>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}

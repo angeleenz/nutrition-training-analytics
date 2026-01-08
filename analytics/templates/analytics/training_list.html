@@ -2,17 +2,36 @@
 
 {% block content %}
 <div class="max-w-5xl mx-auto">
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 class="text-3xl font-bold text-gray-800">Training History</h1>
         <a href="{% url 'training-create' %}" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">Log Workout</a>
     </div>
 
-    <div class="bg-white shadow overflow-hidden rounded-lg">
+    <!-- Filter -->
+    <div class="bg-white p-4 rounded-lg shadow-sm border mb-6">
+        <form method="get" class="flex flex-wrap items-end gap-2 text-sm">
+            <div>
+                <label class="block text-xs font-medium text-gray-700">From</label>
+                <input type="date" name="start_date" value="{{ start_date|default:'' }}" class="border rounded p-1">
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700">To</label>
+                <input type="date" name="end_date" value="{{ end_date|default:'' }}" class="border rounded p-1">
+            </div>
+            <button type="submit" class="bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-600">Filter</button>
+            {% if start_date or end_date %}
+                <a href="." class="text-red-500 ml-2 hover:underline">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="bg-white shadow overflow-hidden rounded-lg overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cals / HR</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intensity</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Types</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -23,6 +42,10 @@
                 <tr>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ session.date }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ session.duration_minutes }} min</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>{{ session.calories_burned }} kcal</div>
+                        <div class="text-xs text-gray-400">{{ session.average_heartrate }} bpm</div>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                         {% if session.intensity >= 8 %}bg-red-100 text-red-800
@@ -31,45 +54,38 @@
                             {{ session.intensity }}/10
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-500">
-                        {% for type in session.workout_types.all %}
-                            <span class="inline-block bg-gray-200 rounded px-2 py-1 text-xs text-gray-700 mr-1">{{ type.name }}</span>
-                        {% endfor %}
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div class="flex flex-wrap gap-1">
+                            {% for type in session.workout_types.all %}
+                                <span class="text-xs bg-gray-100 px-2 py-1 rounded">{{ type.name }}</span>
+                            {% empty %}
+                                -
+                            {% endfor %}
+                        </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="{% url 'training-detail' session.pk %}" class="text-green-600 hover:text-green-900">View</a>
+                        <a href="{% url 'training-detail' session.pk %}" class="text-blue-600 hover:text-blue-900">View</a>
                         <a href="{% url 'training-update' session.pk %}" class="ml-4 text-indigo-600 hover:text-indigo-900">Edit</a>
+                        <a href="{% url 'training-delete' session.pk %}" class="ml-4 text-red-600 hover:text-red-900">Delete</a>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
 
-        {% if sessions.has_other_pages %}
-        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-            <div class="flex-1 flex justify-between">
-                {% if sessions.has_previous %}
-                    <a href="?page={{ sessions.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:text-gray-500">
-                        Previous
-                    </a>
-                {% else %}
-                    <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed">Previous</span>
-                {% endif %}
-                
-                <span class="text-sm text-gray-700 py-2">
-                    Page {{ sessions.number }} of {{ sessions.paginator.num_pages }}
-                </span>
-
-                {% if sessions.has_next %}
-                    <a href="?page={{ sessions.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:text-gray-500">
-                        Next
-                    </a>
-                {% else %}
-                    <span class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed">Next</span>
-                {% endif %}
-            </div>
+    <div class="mt-4 flex justify-between items-center text-sm text-gray-600">
+        <div>
+            Page {{ sessions.number }} of {{ sessions.paginator.num_pages }}
         </div>
-        {% endif %}
+        <div class="space-x-2">
+            {% if sessions.has_previous %}
+                <a href="?page={{ sessions.previous_page_number }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}" class="text-blue-600 hover:underline">Previous</a>
+            {% endif %}
+            {% if sessions.has_next %}
+                <a href="?page={{ sessions.next_page_number }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}" class="text-blue-600 hover:underline">Next</a>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}

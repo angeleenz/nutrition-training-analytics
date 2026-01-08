@@ -27,7 +27,7 @@ class DailyNutritionForm(StyledFormMixin, forms.ModelForm):
 class TrainingSessionForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = TrainingSession
-        fields = ['date', 'duration_minutes', 'intensity', 'workout_types', 'notes']
+        fields = ['date', 'duration_minutes', 'calories_burned', 'average_heartrate', 'workout_types', 'notes']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'workout_types': forms.CheckboxSelectMultiple(attrs={'class': 'space-y-2'}),
