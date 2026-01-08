@@ -1,24 +1,24 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from .models import DailyNutrition, TrainingSession
-from .forms import DailyNutritionForm, TrainingSessionForm
+from .forms import DailyNutritionForm, TrainingSessionForm, SignUpForm
 from .utils import get_analytics_graph, get_macro_pie_chart, get_workout_type_chart
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.core.paginator import Paginator
+
 
 # Auth Views
 def signup(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = SignUpForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             return redirect('dashboard')
     else:
-        form = UserCreationForm()
+        form = SignUpForm()
     return render(request, 'registration/signup.html', {'form': form})
 
 
