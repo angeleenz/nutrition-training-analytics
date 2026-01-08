@@ -118,13 +118,38 @@ def nutrition_create(request):
     if request.method == 'POST':
         form = DailyNutritionForm(request.POST)
         if form.is_valid():
+            # Check for existing entry on this date
+            date_val = form.cleaned_data['date']
+            existing = DailyNutrition.objects.filter(user=request.user, date=date_val).first()
+            
+            if existing:
+                # If Overwrite confirmed
+                if 'confirm_overwrite' in request.POST:
+                    # Initialize form with POST data and Instance to Trigger Update
+                    update_form = DailyNutritionForm(request.POST, instance=existing)
+                    if update_form.is_valid():
+                        update_form.save()
+                        messages.success(request, f'Nutrition log for {date_val} updated successfully.')
+                        return redirect('nutrition-list')
+                
+                # Else show conflict warning
+                messages.warning(request, f'A log for {date_val} already exists.')
+                return render(request, 'analytics/form.html', {
+                    'form': form, 
+                    'title': 'Log Nutrition',
+                    'conflict': True,
+                    'conflict_date': date_val
+                })
+
             nutrition = form.save(commit=False)
             nutrition.user = request.user
             nutrition.save()
             messages.success(request, 'Nutrition log added successfully.')
             return redirect('nutrition-list')
     else:
-        form = DailyNutritionForm()
+        # Pre-fill date with today
+        from datetime import date
+        form = DailyNutritionForm(initial={'date': date.today()})
     return render(request, 'analytics/form.html', {'form': form, 'title': 'Log Nutrition'})
 
 
