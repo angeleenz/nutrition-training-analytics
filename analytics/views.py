@@ -121,7 +121,7 @@ def nutrition_create(request):
             # Check for existing entry on this date
             date_val = form.cleaned_data['date']
             existing = DailyNutrition.objects.filter(user=request.user, date=date_val).first()
-            
+
             if existing:
                 # If Overwrite confirmed
                 if 'confirm_overwrite' in request.POST:
@@ -131,11 +131,11 @@ def nutrition_create(request):
                         update_form.save()
                         messages.success(request, f'Nutrition log for {date_val} updated successfully.')
                         return redirect('nutrition-list')
-                
+
                 # Else show conflict warning
                 messages.warning(request, f'A log for {date_val} already exists.')
                 return render(request, 'analytics/form.html', {
-                    'form': form, 
+                    'form': form,
                     'title': 'Log Nutrition',
                     'conflict': True,
                     'conflict_date': date_val
@@ -219,3 +219,22 @@ def training_update(request, pk):
     else:
         form = TrainingSessionForm(instance=session)
     return render(request, 'analytics/form.html', {'form': form, 'title': 'Edit Workout'})
+
+@login_required
+def nutrition_delete(request, pk):
+    entry = get_object_or_404(DailyNutrition, pk=pk, user=request.user)
+    if request.method == 'POST':
+        entry.delete()
+        messages.success(request, 'Nutrition entry deleted.')
+        return redirect('nutrition-list')
+    return render(request, 'analytics/confirm_delete.html', {'object': entry, 'type': 'Nutrition Entry'})
+
+
+@login_required
+def training_delete(request, pk):
+    session = get_object_or_404(TrainingSession, pk=pk, user=request.user)
+    if request.method == 'POST':
+        session.delete()
+        messages.success(request, 'Training session deleted.')
+        return redirect('training-list')
+    return render(request, 'analytics/confirm_delete.html', {'object': session, 'type': 'Training Session'})
