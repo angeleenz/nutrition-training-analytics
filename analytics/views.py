@@ -1,10 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from .models import DailyNutrition, TrainingSession
+from .models import DailyNutrition, TrainingSession, WorkoutType
 from .forms import DailyNutritionForm, TrainingSessionForm, SignUpForm
 from .utils import (
-    get_analytics_graph, get_macro_pie_chart, get_workout_type_chart,
-    calculate_streaks, get_advanced_stats
+    get_analytics_graph, get_macro_pie_chart, get_workout_type_chart, get_tei_history_chart,
+    calculate_streaks, get_advanced_stats, get_correlation_charts
 )
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
@@ -43,7 +43,16 @@ def dashboard(request):
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
 
-    # Recent lists with simple pagination for "mini-list" feel
+    # Advanced Filtering Controls
+    activity_id = request.GET.get('activity')
+    try:
+        smoothing = int(request.GET.get('smoothing', 0))
+    except ValueError:
+        smoothing = 0
+    
+    remove_outliers = request.GET.get('outliers') == 'on'
+
+    # Filter Querysets
     nutrition_qs = DailyNutrition.objects.filter(user=user).order_by('-date')
     training_qs = TrainingSession.objects.filter(user=user).order_by('-date')
 
@@ -54,6 +63,11 @@ def dashboard(request):
     if end_date:
         nutrition_qs = nutrition_qs.filter(date__lte=end_date)
         training_qs = training_qs.filter(date__lte=end_date)
+    
+    # Optional: Filter recent list by activity type too? 
+    # Usually users expect the list to reflect the filters.
+    if activity_id and activity_id != 'all':
+        training_qs = training_qs.filter(workout_types__id=activity_id)
 
     # Pagination for dashboard (e.g. 5 items per "page")
     nut_paginator = Paginator(nutrition_qs, 5)
@@ -65,13 +79,29 @@ def dashboard(request):
     recent_training = train_paginator.get_page(train_page_number)
 
     # Generate Graphs
-    graph_main = get_analytics_graph(user, start_date, end_date)
+    graph_main = get_analytics_graph(
+        user, start_date, end_date, 
+        activity_id=activity_id, smoothing=smoothing, remove_outliers=remove_outliers
+    )
     graph_pie = get_macro_pie_chart(user, start_date, end_date)
     graph_bar = get_workout_type_chart(user, start_date, end_date)
+    
+    graph_tei = get_tei_history_chart(
+        user, start_date, end_date,
+        activity_id=activity_id, smoothing=smoothing, remove_outliers=remove_outliers
+    )
+    
+    graph_corr = get_correlation_charts(
+        user, start_date, end_date,
+        activity_id=activity_id, smoothing=smoothing, remove_outliers=remove_outliers
+    )
 
     # Advanced Stats
     streaks = calculate_streaks(user)
     adv_stats = get_advanced_stats(user, start_date, end_date)
+
+    # Context for filters
+    all_activities = WorkoutType.objects.all()
 
     context = {
         'recent_nutrition': recent_nutrition,
@@ -79,10 +109,17 @@ def dashboard(request):
         'analytics_graph': graph_main,
         'graph_pie': graph_pie,
         'graph_bar': graph_bar,
+        'graph_tei': graph_tei,
+        'graph_corr': graph_corr,
         'streaks': streaks,
         'adv_stats': adv_stats,
         'start_date': start_date,
         'end_date': end_date,
+        # Filter Context using IDs where appropriate
+        'all_activities': all_activities,
+        'selected_activity': int(activity_id) if activity_id and activity_id != 'all' else 'all',
+        'smoothing': smoothing,
+        'remove_outliers': remove_outliers
     }
     return render(request, 'analytics/dashboard.html', context)
 @login_required

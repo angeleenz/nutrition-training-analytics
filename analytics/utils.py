@@ -2,12 +2,45 @@ import matplotlib
 matplotlib.use('Agg')  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
+import numpy as np # noqa: E402
 import io  # noqa: E402
 import base64  # noqa: E402
 from .models import DailyNutrition, TrainingSession  # noqa: E402
 
+def _apply_preprocessing(df, cols, smoothing=0, remove_outliers=False):
+    """
+    Helper to apply smoothing and outlier removal to a Pandas DataFrame.
+    """
+    if df.empty:
+        return df
+    
+    # Copy to avoid SettingWithCopy warnings
+    df = df.copy()
 
-def get_analytics_graph(user, start_date=None, end_date=None):
+    # 1. Outlier Removal (Z-Score method, simple threshold of 2.0)
+    if remove_outliers:
+        for col in cols:
+            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                mean = df[col].mean()
+                std = df[col].std()
+                if std > 0:
+                    # Keep rows within 2 standard deviations
+                    df = df[(df[col] >= mean - 2*std) & (df[col] <= mean + 2*std)]
+    
+    # 2. Smoothing (Rolling Average)
+    if smoothing > 1:
+        # Ensure sorted by date
+        if 'date' in df.columns:
+            df = df.sort_values('date')
+        
+        for col in cols:
+            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].rolling(window=smoothing, min_periods=1).mean()
+
+    return df
+
+
+def get_analytics_graph(user, start_date=None, end_date=None, activity_id=None, smoothing=0, remove_outliers=False):
     # 1. Fetch Data
     nutrition_qs = DailyNutrition.objects.filter(user=user)
     training_qs = TrainingSession.objects.filter(user=user)
@@ -18,6 +51,9 @@ def get_analytics_graph(user, start_date=None, end_date=None):
     if end_date:
         nutrition_qs = nutrition_qs.filter(date__lte=end_date)
         training_qs = training_qs.filter(date__lte=end_date)
+    
+    if activity_id and activity_id != 'all':
+        training_qs = training_qs.filter(workout_types__id=activity_id)
 
     nutrition_vals = nutrition_qs.values('date', 'calories')
     training_vals = training_qs.values('date', 'intensity', 'duration_minutes')
@@ -37,6 +73,15 @@ def get_analytics_graph(user, start_date=None, end_date=None):
 
     if not df_training.empty:
         df_training['date'] = pd.to_datetime(df_training['date'])
+        
+        # Preprocessing for Training Data ONLY
+        # We don't usually smooth nutrition in this view, but could. Let's smooth training.
+        df_training = _apply_preprocessing(
+            df_training, 
+            cols=['intensity', 'duration_minutes'], 
+            smoothing=smoothing, 
+            remove_outliers=remove_outliers
+        )
     else:
         df_training = pd.DataFrame(columns=['date', 'intensity', 'duration_minutes'])
 
@@ -60,7 +105,13 @@ def get_analytics_graph(user, start_date=None, end_date=None):
     ax2.tick_params(axis='y', labelcolor='tab:red')
     ax2.set_ylim(0, 11)
 
-    plt.title('Nutrition Intake vs Training Intensity')
+    title = 'Nutrition vs Intensity'
+    if activity_id and activity_id != 'all':
+        title += ' (Filtered)'
+    if smoothing > 0:
+        title += f' [Smooth: {smoothing}]'
+    
+    plt.title(title)
     fig.tight_layout()
 
     return _fig_to_base64(fig)
@@ -144,6 +195,139 @@ def _fig_to_base64(fig):
     return graphic
 
 
+def get_tei_history_chart(user, start_date=None, end_date=None, activity_id=None, smoothing=0, remove_outliers=False):
+    qs = TrainingSession.objects.filter(user=user).order_by('date')
+    if start_date:
+        qs = qs.filter(date__gte=start_date)
+    if end_date:
+        qs = qs.filter(date__lte=end_date)
+    if activity_id and activity_id != 'all':
+        qs = qs.filter(workout_types__id=activity_id)
+
+    if not qs.exists():
+        return None
+
+    data = []
+    for t in qs:
+        # Re-calc TEI here to be safe or fetch if stored
+        # TEI = (Calories Burned + (Avg HR * Duration / 10)) / 100
+        cals = t.calories_burned or 0
+        hr = t.average_heartrate or 0
+        dur = t.duration_minutes or 0
+        tei = (cals + (hr * dur / 10.0)) / 100.0
+        data.append({'date': t.date, 'tei': tei})
+    
+    df = pd.DataFrame(data)
+    df['date'] = pd.to_datetime(df['date'])
+
+    # Preprocessing
+    df = _apply_preprocessing(df, cols=['tei'], smoothing=smoothing, remove_outliers=remove_outliers)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(df['date'], df['tei'], marker='o', linestyle='-', color='purple', label='TEI')
+    
+    # Trend line
+    if len(df) > 1:
+        import numpy as np
+        # Use numerical index for trend calculation
+        x = np.arange(len(df))
+        y = df['tei'].values
+        z = np.polyfit(x, y, 1)
+        p = np.poly1d(z)
+        ax.plot(df['date'], p(x), "r--", alpha=0.6, label='Trend')
+
+    ax.set_ylabel('TEI Score')
+    ax.set_title('Training Effectiveness Index Over Time')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+
+    return _fig_to_base64(fig)
+
+
+def get_correlation_charts(user, start_date=None, end_date=None, activity_id=None, smoothing=0, remove_outliers=False):
+    # Fetch Data
+    nut_qs = DailyNutrition.objects.filter(user=user)
+    train_qs = TrainingSession.objects.filter(user=user)
+
+    if start_date:
+        nut_qs = nut_qs.filter(date__gte=start_date)
+        train_qs = train_qs.filter(date__gte=start_date)
+    if end_date:
+        nut_qs = nut_qs.filter(date__lte=end_date)
+        train_qs = train_qs.filter(date__lte=end_date)
+    
+    if activity_id and activity_id != 'all':
+        train_qs = train_qs.filter(workout_types__id=activity_id)
+    
+    # Check if Empty
+    if not nut_qs.exists() or not train_qs.exists():
+        return None
+
+    df_nut = pd.DataFrame(nut_qs.values('date', 'calories', 'protein', 'fats', 'carbs'))
+    df_train = pd.DataFrame(train_qs.values(
+        'date', 'duration_minutes', 'average_heartrate', 'calories_burned', 'intensity'
+    ))
+
+    # Calculate TEI
+    df_train['calories_burned'] = df_train['calories_burned'].fillna(0)
+    df_train['average_heartrate'] = df_train['average_heartrate'].fillna(0)
+    df_train['duration_minutes'] = df_train['duration_minutes'].fillna(0)
+    df_train['tei'] = (
+        df_train['calories_burned'] + (df_train['average_heartrate'] * df_train['duration_minutes'] / 10.0)
+    ) / 100.0
+
+    # Preprocessing
+    df_train = _apply_preprocessing(
+        df_train, 
+        cols=['tei', 'calories_burned', 'intensity'], 
+        smoothing=smoothing, 
+        remove_outliers=remove_outliers
+    )
+
+    # Merge
+    df_nut['date'] = pd.to_datetime(df_nut['date'])
+    df_train['date'] = pd.to_datetime(df_train['date'])
+    df = pd.merge(df_nut, df_train, on='date', how='inner')
+
+    if len(df) < 5:
+        # Not enough data for meaningful scatter plot
+        return None
+
+    # We will create 2 scatter plots side-by-side
+    # 1. Protein vs TEI
+    # 2. Carbs vs Intensity (or Calories Burned)
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Plot 1: Protein vs TEI
+    ax1.scatter(df['protein'], df['tei'], color='purple', alpha=0.7)
+    ax1.set_xlabel('Protein Intake (g)')
+    ax1.set_ylabel('Training Effectiveness (TEI)')
+    ax1.set_title('Protein vs TEI')
+    
+    # Trendline 1
+    if len(df) > 1:
+        import numpy as np
+        z = np.polyfit(df['protein'], df['tei'], 1)
+        p = np.poly1d(z)
+        ax1.plot(df['protein'], p(df['protein']), "r--", alpha=0.5)
+
+    # Plot 2: Carbs vs Calories Burned
+    ax2.scatter(df['carbs'], df['calories_burned'], color='orange', alpha=0.7)
+    ax2.set_xlabel('Carbs Intake (g)')
+    ax2.set_ylabel('Calories Burned (kcal)')
+    ax2.set_title('Carbs vs Energy Output')
+
+    # Trendline 2
+    if len(df) > 1:
+        z = np.polyfit(df['carbs'], df['calories_burned'], 1)
+        p = np.poly1d(z)
+        ax2.plot(df['carbs'], p(df['carbs']), "b--", alpha=0.5)
+
+    fig.tight_layout()
+    return _fig_to_base64(fig)
+
 
 def calculate_streaks(user):
     from datetime import date, timedelta
@@ -214,11 +398,44 @@ def get_advanced_stats(user, start_date=None, end_date=None):
 
     # Calculate TEI per session
     # TEI = (Calories Burned + (Avg HR * Duration / 10)) / 100
-    # Note: Just a heuristic index
+    # Handle NaNs effectively
+    df_train['calories_burned'] = df_train['calories_burned'].fillna(0)
+    df_train['average_heartrate'] = df_train['average_heartrate'].fillna(0)
+    df_train['duration_minutes'] = df_train['duration_minutes'].fillna(0)
+
     df_train['tei'] = (
         df_train['calories_burned'] + (df_train['average_heartrate'] * df_train['duration_minutes'] / 10.0)
     ) / 100.0
-    stats['avg_tei'] = round(df_train['tei'].mean(), 2)
+    stats['avg_tei'] = round(df_train['tei'].mean(), 1) # 1 decimal place
+
+    # Smart Stats: Trend
+    if len(df_train) > 2:
+        import numpy as np
+        try:
+            # Sort just in case
+            df_curr = df_train.sort_values('date')
+            y = df_curr['tei'].values
+            x = np.arange(len(y))
+            slope, intercept = np.polyfit(x, y, 1)
+            
+            if slope > 0.05:
+                stats['tei_trend'] = "Rising 📈"
+                stats['tei_advice'] = "Great job! Your training efficiency is improving."
+            elif slope < -0.05:
+                stats['tei_trend'] = "Falling 📉"
+                stats['tei_advice'] = "Intensity might be dropping. Try increasing heart rate or duration."
+            else:
+                stats['tei_trend'] = "Stable ➡️"
+                stats['tei_advice'] = "Consistent performance. Try mixing up workout types to break plateaus."
+            
+            # Smart Prediction
+            # Predict calories for next 60 min session based on avg intensity
+            avg_intensity_factor = df_curr['calories_burned'].sum() / (df_curr['duration_minutes'].sum() or 1)
+            predicted_cals = int(60 * avg_intensity_factor)
+            stats['prediction'] = f"Estimated burn for 1h workout: ~{predicted_cals} kcal"
+            
+        except Exception:
+            stats['tei_trend'] = "Calculating..."
 
     if df_nut.empty:
         return stats
