@@ -17,7 +17,20 @@ A Django-based web application to analyze the impact of nutrition (macros/calori
 *   **Responsive UI**: Built with Tailwind CSS.
 
 ## Screenshots
-*(Add screenshots here)*
+#### Login
+![Login](screenshots/login.png)
+#### Dashboard
+![Dashboard](screenshots/dashboard.png)
+#### Graphs
+![Graphs](screenshots/graphs.png)
+#### Add nutrition
+![Add_nutrition](screenshots/nutr_add.png)
+#### Nutrition story
+![Nutrition_story](screenshots/nutr_story.png)
+#### Add a workout
+![Add_training](screenshots/train_add.png)
+#### Training story
+![Training_story](screenshots/train_story.png)
 
 ## Locals Setup
 
